@@ -1,0 +1,12 @@
+{
+  "name": "assistec-status-server",
+  "version": "1.0.0",
+  "description": "Servidor de acompanhamento (QR Code) do Assistec Pro",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

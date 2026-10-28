@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Acompanhe seu conserto</title>
+  <style>
+    :root { --sc: #6366f1; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; min-height: 100vh; font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+      color: #1b2030; background: #f3f4f8;
+      background-image: radial-gradient(900px 500px at 50% -10%, color-mix(in srgb, var(--sc) 22%, transparent), transparent 70%);
+      display: flex; justify-content: center; padding: 20px;
+    }
+    .wrap { width: 100%; max-width: 460px; }
+    .brand { display: flex; align-items: center; gap: 12px; justify-content: center; margin: 14px 0 22px; text-align: center; }
+    .brand img { height: 46px; max-width: 120px; object-fit: contain; }
+    .brand .nm { font-weight: 800; font-size: 18px; }
+    h1 { font-size: 24px; text-align: center; margin: 0 0 4px; letter-spacing: -.02em; }
+    .sub { text-align: center; color: #5b6578; margin: 0 0 22px; }
+    .card { background: #fff; border-radius: 20px; padding: 26px 22px; box-shadow: 0 20px 50px -24px rgba(20,24,40,.35); border: 1px solid #eceef3; }
+    .status-pill { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; padding: 7px 14px; border-radius: 30px; color: var(--sc); background: color-mix(in srgb, var(--sc) 13%, transparent); }
+    .status-pill .d { width: 9px; height: 9px; border-radius: 50%; background: var(--sc); animation: pulse 1.6s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+    .msg { font-size: 18px; line-height: 1.5; margin: 18px 0 6px; font-weight: 500; }
+    .meta { margin-top: 18px; border-top: 1px solid #eef0f4; padding-top: 16px; display: grid; gap: 10px; }
+    .meta .row { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+    .meta .row span:first-child { color: #78839a; }
+    .meta .row span:last-child { font-weight: 600; text-align: right; }
+    .steps { display: flex; justify-content: space-between; margin: 24px 2px 4px; position: relative; }
+    .steps::before { content: ''; position: absolute; left: 10px; right: 10px; top: 9px; height: 2px; background: #e6e9ef; }
+    .step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+    .step .dot { width: 20px; height: 20px; border-radius: 50%; background: #e6e9ef; border: 3px solid #fff; }
+    .step.done .dot { background: var(--sc); }
+    .step .lb { font-size: 10px; color: #9aa3b2; max-width: 56px; text-align: center; line-height: 1.2; }
+    .step.done .lb { color: #4a5264; font-weight: 600; }
+    .finished .card { border-color: color-mix(in srgb, var(--sc) 45%, transparent); }
+    .contact { margin-top: 18px; display: flex; gap: 10px; }
+    .contact a { flex: 1; text-align: center; text-decoration: none; padding: 12px; border-radius: 12px; font-weight: 600; font-size: 14px; }
+    .contact .wpp { background: #25d366; color: #fff; }
+    .contact .tel { background: #eef0f5; color: #1b2030; }
+    .foot { text-align: center; color: #9aa3b2; font-size: 12px; margin: 20px 0; }
+    .updated { text-align: center; font-size: 12px; color: #9aa3b2; margin-top: 14px; }
+    .loading, .error { text-align: center; padding: 60px 20px; color: #78839a; }
+    .spin { width: 34px; height: 34px; border: 3px solid #e6e9ef; border-top-color: var(--sc); border-radius: 50%; animation: s 1s linear infinite; margin: 0 auto 14px; }
+    @keyframes s { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <div class="loading"><div class="spin"></div>Carregando…</div>
+  </div>
+
+  <script>
+    var STEPS = [
+      { keys: ['aberta', 'em_analise'], label: 'Recebido' },
+      { keys: ['aguardando_aprovacao', 'aprovada', 'aguardando_peca'], label: 'Orçamento' },
+      { keys: ['em_reparo'], label: 'Em reparo' },
+      { keys: ['pronta', 'entregue'], label: 'Pronto' },
+    ]
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+    var token = location.pathname.split('/').filter(Boolean).pop()
+
+    function stepIndex(statusKey) {
+      for (var i = 0; i < STEPS.length; i++) if (STEPS[i].keys.indexOf(statusKey) >= 0) return i
+      return -1
+    }
+
+    function render(d) {
+      document.documentElement.style.setProperty('--sc', d.color || d.themeColor || '#6366f1')
+      var app = document.getElementById('app')
+      var idx = d.canceled ? -1 : stepIndex(d.statusKey)
+
+      var brand = '<div class="brand">' +
+        (d.logo ? '<img src="' + esc(d.logo) + '" alt="">' : '') +
+        '<span class="nm">' + esc(d.shopName || '') + '</span></div>'
+
+      var steps = d.canceled ? '' : '<div class="steps">' + STEPS.map(function (s, i) {
+        return '<div class="step ' + (i <= idx ? 'done' : '') + '"><div class="dot"></div><div class="lb">' + esc(s.label) + '</div></div>'
+      }).join('') + '</div>'
+
+      var meta = ''
+      if (d.osCode) meta += '<div class="row"><span>Ordem de serviço</span><span>' + esc(d.osCode) + '</span></div>'
+      if (d.showDevice && d.deviceLabel) meta += '<div class="row"><span>Aparelho</span><span>' + esc(d.deviceLabel) + '</span></div>'
+      if (d.showEta && d.eta && !d.finished) meta += '<div class="row"><span>Previsão</span><span>' + esc(d.eta) + '</span></div>'
+
+      var contact = ''
+      if (d.showShopContact && (d.shopWhatsapp || d.shopPhone)) {
+        contact = '<div class="contact">' +
+          (d.shopWhatsapp ? '<a class="wpp" href="https://wa.me/55' + esc((d.shopWhatsapp || '').replace(/\D/g, '')) + '">WhatsApp</a>' : '') +
+          (d.shopPhone ? '<a class="tel" href="tel:' + esc((d.shopPhone || '').replace(/\D/g, '')) + '">Ligar</a>' : '') +
+          '</div>'
+      }
+
+      app.className = 'wrap' + (d.finished ? ' finished' : '')
+      app.innerHTML = brand +
+        '<h1>' + esc(d.headline || 'Acompanhe seu conserto') + '</h1>' +
+        '<p class="sub">' + esc(d.subheadline || '') + '</p>' +
+        '<div class="card">' +
+          '<span class="status-pill"><span class="d"></span>' + esc(d.statusLabel || '') + '</span>' +
+          '<div class="msg">' + esc(d.message || '') + '</div>' +
+          steps +
+          (meta ? '<div class="meta">' + meta + '</div>' : '') +
+          contact +
+        '</div>' +
+        (d.updatedAt ? '<div class="updated">Atualizado em ' + new Date(d.updatedAt).toLocaleString('pt-BR') + '</div>' : '') +
+        '<div class="foot">Acompanhamento em tempo real · ' + esc(d.shopName || '') + '</div>'
+    }
+
+    function load() {
+      fetch('/api/public/' + encodeURIComponent(token))
+        .then(function (r) { if (!r.ok) throw new Error('nf'); return r.json() })
+        .then(render)
+        .catch(function () {
+          document.getElementById('app').innerHTML = '<div class="error"><h1>Não encontrado</h1><p>Não localizamos esta ordem de serviço. Confira o QR Code ou fale com a loja.</p></div>'
+        })
+    }
+
+    load()
+    setInterval(load, 20000) // atualiza a cada 20s
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) load() })
+  </script>
+</body>
+</html>
